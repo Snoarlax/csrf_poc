@@ -1,79 +1,86 @@
 const express = require('express');
 const body_parser = require('body-parser');
 const cookie_parser = require('cookie-parser');
-const user_router = express.Router();
+const admin_router = express.Router();
 const app = express();
 const PORT = 1337;
+const default_password = 'CSRF_IS_COOL';
   
 app.use(body_parser.json());
 app.use(cookie_parser());
-app.use('/user', user_router);
-const users = {};
+app.use('/auth', admin_router);
+const db =  { 'cart' : [], 'password' : default_password, 'balance' : 100};
 
 function authenticate(req, res, next){
-	const name = req.cookies['username'];
 	const password = req.cookies['password'];
 
-
-	if (users[name].hasOwnProperty('password') && !(password == users[name]['password'])){
-		throw new Error(`Invalid password for ${name}! Submitted ${password}`);
+	if (db.hasOwnProperty('password') && !(password == db['password'])){
+		throw new Error(`Invalid password! Submitted ${password}`);
 	}
 
 	next();
 }
 
-user_router.use(authenticate);
+// Not important for PoC, this is just for randomly getting a price from an item
+function cost(item){
+	// counts number of 1's in binary representation of item, then tries to normalise 
+	var sum = 0;
+	for (let i = 0; i < item.length; i++) {
+		sum += item[i].charCodeAt().toString(2).split('1').length;
+	}
+
+	return sum % 10;
+}
+
+admin_router.use(authenticate);
 
 // Authenticated
+
 // Vulnerable to CSRF -> We shouldn't use GET for this!
-user_router.get('/:name/:item', (req, res)=>{
+admin_router.get('/:item', (req, res)=>{
 	const item = req.params.item;
-	const name = req.params.name;
-	console.log(`AddItem: ${item} in ${name}`);
-	if (!users.hasOwnProperty(name)){
-		users[name] = {};
+	console.log(`AddItem: ${item}`);
+    if(!db.hasOwnProperty('cart')){
+		db['cart'] = [];
 	}
-    if(!users[name].hasOwnProperty('cart')){
-		users[name]['cart'] = []
-	}
-	users[name]['cart'].push(item);
+	db['cart'].push(item);
 
-	console.log(`${name} cart: ` + users[name]['cart'].toString());
-    res.send(`Added ${item} to ${name}\'s cart`);
+	console.log(`cart: ` + db['cart'].toString());
+    res.send(`Added ${item} to cart\n`);
 });
 
 
-user_router.get('/:name', (req, res) => {
-	const name = req.params.name;
-	console.log(`GetCart: ${name}`);
-	if (users.hasOwnProperty(name) && users[name].hasOwnProperty('cart')){
-		res.send(users[name]['cart']);
-	}
-	else {
-		res.send("");
-	}
-
-	console.log(`returned cart for ${name}`);
+admin_router.get('/', (req, res) => {
+	console.log(`GetCart`);
+	res.send(db['cart']);
 });
 
 
-// Unauthenticated
-app.post('/:name', (req, res) => {
+admin_router.post('/purchase', (req, res) => {
+	var total = 0;
+	for (let i = 0; i < db['cart'].length; i++) {
+		total += cost(db['cart'][i]);
+	}
+
+	console.log(`Purchased: ${db['cart']}`);
+	db['cart'] = [];
+	db['balance'] = db['balance'] - total;
+
+	res.send(`Total cost: £${total}\n`);
+});
+
+admin_router.post('/update_password', (req, res) => {
 	const {password} = req.body;
-	const name = req.params.name;
-	console.log(`UpdatePassword: ${password} in ${name}`);
-	if (!users.hasOwnProperty(name)){
-		users[name] = {};
-	}
-	users[name]['password'] = password;
-	// TODO: set scope to only the /name/* scope
-	res.cookie('username', name);
+	console.log(`UpdatePassword: ${password}`);
+	db['password'] = password;
 	res.cookie('password', password);
-	res.send(`Set the password of ${name} to ${password}`);
+	res.send(`Set the password to ${password}\n`);
 });	
 
-app.get('/users', (req, res) => {
-	res.send(users);
+// Not authenticated
+// Debugging
+app.get('/db', (req, res) => {
+	res.send(db);
 });
 
 app.listen(PORT, (error) =>{

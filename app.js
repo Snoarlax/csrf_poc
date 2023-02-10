@@ -26,7 +26,7 @@ function cost(item){
 	// counts number of 1's in binary representation of item, then tries to normalise 
 	var sum = 0;
 	for (let i = 0; i < item.length; i++) {
-		sum += item[i].charCodeAt().toString(2).split('1').length;
+		sum += item[i].charCodeAt().toString(2).split('1').length/4;
 	}
 
 	return sum % 10;
@@ -82,6 +82,14 @@ admin_router.post('/update_password', (req, res) => {
 app.get('/db', (req, res) => {
 	res.send(db);
 });
+
+
+app.get('/get_password', (req, res) => {
+	let password = db['password'];
+	console.log(`GetPassword: ${password}`);
+	res.cookie('password', password);
+	res.send(`Returned password, ${password}\n`);
+});	
 
 app.listen(PORT, (error) =>{
     if(!error)

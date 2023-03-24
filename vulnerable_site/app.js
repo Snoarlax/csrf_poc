@@ -37,6 +37,20 @@ admin_router.use(authenticate);
 // Authenticated
 
 // Vulnerable to CSRF -> We shouldn't use GET for this!
+//
+admin_router.get('/purchase', (req, res) => {
+	var total = 0;
+	for (let i = 0; i < db['cart'].length; i++) {
+		total += cost(db['cart'][i]);
+	}
+
+	console.log(`Purchased: ${db['cart']}`);
+	db['cart'] = [];
+	db['balance'] = db['balance'] - total;
+
+	res.send(`Total cost: £${total}\n`);
+});
+
 admin_router.get('/:item', (req, res)=>{
 	const item = req.params.item;
 	console.log(`AddItem: ${item}`);
@@ -49,25 +63,11 @@ admin_router.get('/:item', (req, res)=>{
     res.send(`Added ${item} to cart\n`);
 });
 
-
 admin_router.get('/', (req, res) => {
 	console.log(`GetCart`);
 	res.send(db['cart']);
 });
 
-
-admin_router.post('/purchase', (req, res) => {
-	var total = 0;
-	for (let i = 0; i < db['cart'].length; i++) {
-		total += cost(db['cart'][i]);
-	}
-
-	console.log(`Purchased: ${db['cart']}`);
-	db['cart'] = [];
-	db['balance'] = db['balance'] - total;
-
-	res.send(`Total cost: £${total}\n`);
-});
 
 admin_router.post('/update_password', (req, res) => {
 	const {password} = req.body;
